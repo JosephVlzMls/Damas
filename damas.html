@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Damas</title>
+		<link rel='stylesheet' href='estilo.css'/>
+	</head>
+	<body>		
+	
+		<canvas id="lienzo" width="800" height="800"></canvas>
+		
+		<script>		
+			
+			var tablero = new Tablero("#A1A1A1", "#5C5C5C", "#FF0000", "#0000FF");
+			var canvas = document.getElementById('lienzo');
+			var contexto = canvas.getContext("2d");
+			dibujarTablero();
+			
+			function Pieza(color){
+				this.color = color;
+				this.esReina = false;
+			}
+			function Casilla(color, pieza){
+				this.color = color;
+				this.pieza = pieza;
+			}
+			function Tablero(colorC1, colorC2, colorJ1, colorJ2){
+				this.colorC1 = colorC1;
+				this.colorC2 = colorC2;
+				this.colorJ1 = colorJ1;
+				this.colorJ2 = colorJ2;
+				this.turno = colorJ1;
+				this.puedeComer = false;
+				this.piezasJ1 = 12;
+				this.piezasJ2 = 12;
+				this.casillas = [];
+				for(var i=0; i<8; i++){
+					this.casillas.push([])
+					for(var w=0; w<8; w++){
+						var colorCasilla = ((i%2==0 && w%2==0) || (i%2==1 && w%2==1)) ? colorC1 : colorC2;
+						this.casillas[i].push(new Casilla(colorCasilla, null));
+						if(i < 3 && colorCasilla == colorC2){ this.casillas[i][w].pieza = new Pieza(colorJ2); }
+						else if(i > 4 && colorCasilla == colorC2){	this.casillas[i][w].pieza = new Pieza(colorJ1); }
+					}
+				}
+				this.indiceCasillaSeleccionada = null;
+			}			
+		    function dibujarTablero() {
+		        contexto.rect(0, 0, lienzo.width, lienzo.height);
+		        for(var i=0; i<8; i++){
+		        	for(var w=0; w<8; w++){
+		        		contexto.fillStyle = tablero.casillas[i][w].color;
+		        		contexto.fillRect(w*100, i*100, 100, 100);
+		        		if(tablero.casillas[i][w].pieza != null){
+							contexto.beginPath();
+		        			contexto.fillStyle = tablero.casillas[i][w].pieza.color;
+		        			contexto.arc(w*100+50, i*100+50, 40, 0, 2*Math.PI, false);
+							contexto.fill();
+							contexto.closePath();
+							if(tablero.casillas[i][w].pieza.esReina){
+								contexto.fillStyle = "#FFDD33";
+								contexto.fillRect(w*100+40, i*100+40, 20, 20);
+							}
+		        		}
+		        	}
+		       	}
+		    }
+		    function posicionMouseTablero(canvas, evt){
+				var c = canvas.getBoundingClientRect();
+				return { x : evt.clientX-c.left, y : evt.clientY-c.top };
+		    }
+			function obtenerCasilla(canvas, evt){
+				var click = posicionMouseTablero(canvas, evt);
+				return { i : (click.y/100)>>0, w : (click.x/100)>>0 };
+			}
+			function moverPieza(origen, destino){
+				tablero.casillas[destino.i][destino.w].pieza = tablero.casillas[origen.i][origen.w].pieza;
+				tablero.casillas[origen.i][origen.w].pieza = null;
+				if(tablero.casillas[destino.i][destino.w].pieza.color == tablero.colorJ1 && destino.i == 0){
+					tablero.casillas[destino.i][destino.w].pieza.esReina = true;
+				}
+				else if(tablero.casillas[destino.i][destino.w].pieza.color == tablero.colorJ2 && destino.i == 7){
+					tablero.casillas[destino.i][destino.w].pieza.esReina = true;
+				}
+			}
+			function casillaValida(i, w){
+				if(i >= 0 && i <= 7 && w >= 0 && w <= 7){
+					return tablero.casillas[i][w].pieza == null;
+				}
+				return false;
+			}
+			function casillaValidaComer(i, w){
+				if(tablero.casillas[i][w].pieza.color == tablero.colorJ1 || tablero.casillas[i][w].pieza.esReina){
+					if(casillaValida(i-2, w-2)){
+						if(tablero.casillas[i-1][w-1].pieza != null){
+							if(tablero.casillas[i-1][w-1].pieza.color != tablero.casillas[i][w].pieza.color){ return true; }
+						}
+					}
+					if(casillaValida(i-2, w+2)){
+						if(tablero.casillas[i-1][w+1].pieza != null){
+							if(tablero.casillas[i-1][w+1].pieza.color != tablero.casillas[i][w].pieza.color){ return true; }
+						}
+					}
+				}
+				if(tablero.casillas[i][w].pieza.color == tablero.colorJ2 || tablero.casillas[i][w].pieza.esReina){
+					if(casillaValida(i+2, w+2)){
+						if(tablero.casillas[i+1][w+1].pieza != null){
+							if(tablero.casillas[i+1][w+1].pieza.color != tablero.casillas[i][w].pieza.color){ return true; }
+						}
+					}
+					if(casillaValida(i+2, w-2)){
+						if(tablero.casillas[i+1][w-1].pieza != null){
+							if(tablero.casillas[i+1][w-1].pieza.color != tablero.casillas[i][w].pieza.color){ return true; }
+						}
+					}
+				}
+				return false;
+			}
+			function validarPuedeComer(){
+				for(var i=0; i<8; i++){
+					for(var w=0; w<8; w++){
+						if(tablero.casillas[i][w].pieza != null){
+							if(tablero.casillas[i][w].pieza.color == tablero.turno){
+								if(casillaValidaComer(i, w)){
+									return true; 
+								}
+							}
+						}
+					}
+				}
+				return false;
+			}
+
+			canvas.addEventListener('click', function(evt){
+				var indice = obtenerCasilla(canvas, evt);
+				var casilla = tablero.casillas[indice.i][indice.w];
+				if(tablero.indiceCasillaSeleccionada == null){
+					if(casilla.pieza != null){
+						if(casilla.pieza.color == tablero.turno){
+							tablero.respaldoColor = casilla.color;
+							casilla.color = "#4A9242";
+							tablero.indiceCasillaSeleccionada = indice;
+						}
+					}
+				}
+				else {
+					var i = tablero.indiceCasillaSeleccionada.i;
+					var w = tablero.indiceCasillaSeleccionada.w; 
+					var realizoMovimiento = false;
+					if(tablero.casillas[i][w].pieza.color == tablero.colorJ2 || tablero.casillas[i][w].pieza.esReina){
+						if(tablero.puedeComer == false && indice.i == i+1 && indice.w == w+1 && casilla.pieza == null){ 
+							moverPieza({ i : i, w : w }, indice); 
+							realizoMovimiento = true;
+						}
+						if(tablero.puedeComer == false && indice.i == i+1 && indice.w == w-1 && casilla.pieza == null){ 
+							moverPieza({ i : i, w : w }, indice); 
+							realizoMovimiento = true;
+						}
+						if(indice.i == i+2 && indice.w == w+2 && casilla.pieza == null){
+							if(tablero.casillas[i+1][w+1].pieza.color != tablero.casillas[i][w].pieza.color){
+								moverPieza({ i : i, w : w }, indice);
+								tablero.casillas[i+1][w+1].pieza = null;
+								tablero.puedeComer = validarPuedeComer();
+								if(tablero.turno == tablero.colorJ1){ tablero.piezasJ2--; }
+								else { tablero.piezasJ1--; }
+								realizoMovimiento = true;
+							}
+						}
+						if(indice.i == i+2 && indice.w == w-2 && casilla.pieza == null){
+							if(tablero.casillas[i+1][w-1].pieza.color != tablero.casillas[i][w].pieza.color){
+								moverPieza({ i : i, w : w }, indice);
+								tablero.casillas[i+1][w-1].pieza = null;
+								tablero.puedeComer = validarPuedeComer();
+								if(tablero.turno == tablero.colorJ1){ tablero.piezasJ2--; }
+								else { tablero.piezasJ1--; }
+								realizoMovimiento = true;
+							}
+						}
+					}
+					if(tablero.casillas[i][w].pieza != null){
+						if(tablero.casillas[i][w].pieza.color == tablero.colorJ1 || tablero.casillas[i][w].pieza.esReina){
+							if(tablero.puedeComer == false && indice.i == i-1 && indice.w == w-1 && casilla.pieza == null){ 
+								moverPieza({ i : i, w : w }, indice); 
+								realizoMovimiento = true;
+							}
+							if(tablero.puedeComer == false && indice.i == i-1 && indice.w == w+1 && casilla.pieza == null){ 
+								moverPieza({ i : i, w : w }, indice); 
+								realizoMovimiento = true;
+							}
+							if(indice.i == i-2 && indice.w == w-2 && casilla.pieza == null){
+								if(tablero.casillas[i-1][w-1].pieza.color != tablero.casillas[i][w].pieza.color){
+									moverPieza({ i : i, w : w }, indice);
+									tablero.casillas[i-1][w-1].pieza = null;
+									tablero.puedeComer = validarPuedeComer();
+									if(tablero.turno == tablero.colorJ1){ tablero.piezasJ2--; }
+									else { tablero.piezasJ1--; }
+									realizoMovimiento = true;
+								}
+							}
+							if(indice.i == i-2 && indice.w == w+2 && casilla.pieza == null){
+								if(tablero.casillas[i-1][w+1].pieza.color != tablero.casillas[i][w].pieza.color){
+									moverPieza({ i : i, w : w }, indice);
+									tablero.casillas[i-1][w+1].pieza = null;
+									tablero.puedeComer = validarPuedeComer();
+									if(tablero.turno == tablero.colorJ1){ tablero.piezasJ2--; }
+									else { tablero.piezasJ1--; }
+									realizoMovimiento = true;
+								}
+							}
+						}
+					}
+					tablero.casillas[i][w].color = ((i%2==0 && w%2==0) || (i%2==1 && w%2==1)) ? tablero.colorC1 : tablero.colorC2;
+					tablero.indiceCasillaSeleccionada = null;
+					if(realizoMovimiento){
+						if(tablero.piezasJ1 == 0){ alert("Ganó jugador 2"); }
+						if(tablero.piezasJ2 == 0){ alert("Ganó jugador 1"); }
+						if(tablero.puedeComer == false){
+							tablero.turno = tablero.turno == tablero.colorJ1 ? tablero.colorJ2 : tablero.colorJ1;
+							tablero.puedeComer = validarPuedeComer();
+						}
+					}
+				}
+				dibujarTablero();
+			}, false);
+			
+		
+		</script>
+		
+		
+	</body>
+</html>
